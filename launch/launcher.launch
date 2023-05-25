@@ -1,19 +1,55 @@
 <launch>
-<!--
+  
   <rosparam param="namespaces">
   ["robot_0", "robot_1", "robot_2", "robot_3", "robot_4",
-  "robot_5", "robot_6", "robot_7", "robot_8", "robot_9"]
+  "robot_5", "robot_6", "robot_7"]
   </rosparam>
 
-  <node name="stage_ros" pkg="stage_ros" type="stageros" args="$(find flocking)/world/empty.world"/>
+<!--
+  <rosparam>
+    alignment_w: 1.2
+    cohesion_w: 1.5
+    separation_w: 1.2
+  </rosparam>
 -->
+
+  <node name="stage_ros" pkg="stage_ros" type="stageros" args="$(find planning_package)/world/maze.world"/>
+
+  <node name="global" pkg="planning_package" type="planner.py" respawn="false" output="screen" />
+
   <group ns = "robot_0">
-    <node name="robot" pkg="" type="multi-robot-planner.py" respawn="false" output="screen" />
+    <node name="flock_node" pkg="planning_package" type="pathplanning.py" respawn="false" output="screen" />
+    <node pkg="tf" type="static_transform_publisher" name="link0_broadcaster" args="2.0 2.0 0.0 0.0 0.0 0.0 /map /robot_0/odom 100" />
   </group>
 
-<!--
   <group ns = "robot_1">
-    <node name="flock_node" pkg="flocking" type="FlockNode" respawn="false" output="screen" />
+    <node name="robot_node" pkg="planning_package" type="pathplanning.py" respawn="false" output="screen" />
+    <node pkg="tf" type="static_transform_publisher" name="link1_broadcaster" args="5.0 7.0 0.0 0.0 0.0 0.0 /map /robot_1/odom 100" />
   </group>
--->
+
+  <group ns = "robot_2">
+    <node name="robot_node" pkg="planning_package" type="pathplanning.py" respawn="false" output="screen" />
+    <node pkg="tf" type="static_transform_publisher" name="link2_broadcaster" args="2.5 5.0 0.0 0.0 0.0 0.0 /map /robot_2/odom 100" />
+  </group>
+
+  <group ns = "robot_3">
+    <node name="robot_node" pkg="planning_package" type="pathplanning.py" respawn="false" output="screen" />
+    <node pkg="tf" type="static_transform_publisher" name="link3_broadcaster" args="4.0 2.0 0.0 0.0 0.0 0.0 /map /robot_3/odom 100" />
+  </group>
+
+  <group ns = "robot_4">
+    <node name="robot_node" pkg="planning_package" type="pathplanning.py" respawn="false" output="screen" />
+    <node pkg="tf" type="static_transform_publisher" name="link4_broadcaster" args="1.0 8.0 0.0 0.0 0.0 0.0 /map /robot_4/odom 100" />
+  </group>
+
+  <group ns = "robot_5">
+    <node name="robot_node" pkg="planning_package" type="pathplanning.py" respawn="false" output="screen" />
+    <node pkg="tf" type="static_transform_publisher" name="link5_broadcaster" args="1.5 9.5 0.0 0.0 0.0 0.0 /map /robot_5/odom 100" />
+  </group>
+
+  <group ns = "robot_6">
+    <node name="robot_node" pkg="planning_package" type="pathplanning.py" respawn="false" output="screen" />
+    <node pkg="tf" type="static_transform_publisher" name="link6_broadcaster" args="1.0 4.0 0.0 0.0 0.0 0.0 /map /robot_6/odom 100" />
+  </group>
+
 </launch>
