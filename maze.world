@@ -49,3 +49,38 @@ rosbot
   name "robot_1"
   color "red"
 )
+
+rosbot
+(
+  pose [ 2.5 5.0 0.0 0.0 ]
+  name "robot_2"
+  color "brown"
+)
+
+rosbot
+(
+  pose [ 4.0 2.0 0.0 0.0 ]
+  name "robot_3"
+  color "pink"
+)
+
+rosbot
+(
+  pose [ 1.0 8.0 0.0 0.0 ]
+  name "robot_4"
+  color "green"
+)
+
+rosbot
+(
+  pose [ 1.5 9.5 0.0 0.0 ]
+  name "robot_5"
+  color "orange"
+)
+
+rosbot
+(
+  pose [ 1.0 4.0 0.0 0.0 ]
+  name "robot_6"
+  color "purple"
+)

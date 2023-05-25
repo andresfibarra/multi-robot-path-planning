@@ -3,7 +3,7 @@ import math # use of pi.
 import numpy as np
 import tf # library for transformations.
 import rospy
-
+import threading
 
 from nav_msgs.msg import OccupancyGrid
 from geometry_msgs.msg import Twist, PoseArray, Pose # message type for cmd_vel
@@ -11,8 +11,14 @@ from geometry_msgs.msg import Twist, PoseArray, Pose # message type for cmd_vel
 FREQUENCY = 10 # Frequency at which the loop operates (Hz)
 ROBOT_WIDTH = 0.25 # Robot size (~.2m for turtlebot)
 
-ROBOT_GOAL_1 = (0.8,9) # DESTINATION
-ROBOT_GOAL_2 = (1,1) # DESTINATION
+# Initialize robots [(start), (goal)]
+ROBOT_0 = [(2.0, 2.0), (0.8,9)] 
+ROBOT_1 = [(5.0, 7.0), (1.0, 1.0)] 
+ROBOT_2 = [(2.5, 5.0), (1.0, 3.0)] 
+ROBOT_3 = [(4.0, 2.0), (3.0, 1.5)] 
+ROBOT_4 = [(1.0, 8.0), (8.0, 5.0)] 
+ROBOT_5 = [(1.5, 9.5), (9.0, 1.0)] 
+ROBOT_6 = [(1.0, 4.0), (3.0, 4.0)] 
 
 # robot params that will be used
 LINEAR_VELOCITY = .22 # m/s
@@ -33,9 +39,12 @@ class Grid:
         return self.grid[y, x]
     
     def mark_cell(self, x, y, val):
+        """Marks cell a desired value"""
+        # currently being used to mark paths of other robots
         exp = int(ROBOT_WIDTH / self.resolution)
         expanded_grid = np.copy(self.grid)
         self.grid[y, x] = val
+        # expand to prevent collisions
         for r_exp in range(-exp, exp+1):
             for c_exp in range(-exp, exp+1):
                 new_r = y + r_exp
@@ -61,72 +70,23 @@ class Grid:
                                 expanded_grid[new_r, new_c] = 100
         self.grid = expanded_grid
 
-class PlanRobot:
-    def __init__(self, linear_velocity=LINEAR_VELOCITY, angular_velocity=ANGULAR_VELOCITY):
-        # set up publishers/subscribers/listeners
+class PlanRobots:
+    def __init__(self, robots, linear_velocity=LINEAR_VELOCITY, angular_velocity=ANGULAR_VELOCITY):
+        # set up subscriber
         self._map_sub = rospy.Subscriber('map', OccupancyGrid, self.map_callback, queue_size=1)
-        self._poses_pub1 = rospy.Publisher("pose_sequence_1", PoseArray, queue_size=1)
-        self._poses_pub2 = rospy.Publisher("pose_sequence_2", PoseArray, queue_size=1)
-        self._cmd_pub1 = rospy.Publisher('/robot_0/cmd_vel', Twist, queue_size=1)
-        self._cmd_pub2 = rospy.Publisher('/robot_1/cmd_vel', Twist, queue_size=1)
-        self.listener = tf.TransformListener()
-        
-        # set up parameters
         self.map = None
-        self.linear_velocity = linear_velocity
-        self.angular_velocity = angular_velocity
+
+        # instantiate robot object for each robot in environment
+        self.robots = []
+        for i in range(len(robots)):
+            self.robots.append(Robot(str(i), robots[i][0], robots[i][1], linear_velocity, angular_velocity))        
+    
+    def stop(self):
+        for robot in self.robots:
+            robot.stop()
 
     def map_callback(self, msg):
         self.map = Grid(msg.data, msg.info.width, msg.info.height, msg.info.resolution, msg.info.origin)
-
-    def move(self, linear_vel, angular_vel, index):
-        """Send a velocity command (linear vel in m/s, angular vel in rad/s)."""
-        # Setting velocities.
-        twist_msg = Twist()
-        twist_msg.linear.x = linear_vel
-        twist_msg.angular.z = angular_vel
-
-        if index == 1:
-            self._cmd_pub1.publish(twist_msg)
-        else:
-            self._cmd_pub2.publish(twist_msg)
-
-    def stop(self, index):
-        """Stop the robot."""
-        twist_msg = Twist()
-        if index == 1:
-            self._cmd_pub1.publish(twist_msg)
-        else:
-            self._cmd_pub2.publish(twist_msg) 
-    
-    def rotate(self, angle, index):
-        """Rotate for desired angle (angle in rad)."""
-        # Setting rate
-        rate = rospy.Rate(FREQUENCY)
-        
-        # rotate for desired duration
-        rot_time = abs(angle / self.angular_velocity)
-        start_time = rospy.get_rostime()
-        while rospy.get_rostime() - start_time < rospy.Duration(rot_time):
-            if angle > 0:
-                self.move(0, self.angular_velocity, index)
-            else:
-                self.move(0, -self.angular_velocity, index)
-            rate.sleep()
-        self.stop(index)
-    
-    def forward(self, distance, index):
-        """Move for desired distance (distance in m)."""
-        # Setting rate
-        rate = rospy.Rate(FREQUENCY)
-        
-        # move for desired duration
-        move_time = distance / self.linear_velocity
-        start_time = rospy.get_rostime()
-        while rospy.get_rostime() - start_time < rospy.Duration(move_time):
-            self.move(self.linear_velocity, 0, index)
-            rate.sleep()
-        self.stop(index)
 
     def get_pose_array(self, start, goal):
         """Return PoseArray for path from start to goal"""
@@ -140,7 +100,8 @@ class PlanRobot:
 
         # for each coordinate, instantiate Pose object
         for i in range(len(coordinates)):
-
+            
+            # CURRENTLY : marking cell as occupied if it is part of a robot's path
             self.map.mark_cell(coordinates[i][0], coordinates[i][1], 100)
 
             pose = Pose()
@@ -212,14 +173,97 @@ class PlanRobot:
         print("no path.")
         return result
     
-    def follow_path(self, path, index):
+    def move_robot_path(self, robot, path):
+        # make robot move in desired path
+        robot.follow_path(path)
+    
+    def path_plan(self):
+        """Plan out path for each robot from start to goal"""
+        """Execute path on robots"""
+
+        threads = []
+        for robot in self.robots:
+            # obtain path from start to goal
+            pose_array = self.get_pose_array(robot.start, robot.goal)
+            # publish path 
+            robot._poses_pub.publish(pose_array)
+            # add function call to make robot move in the path
+            threads.append(threading.Thread(target=self.move_robot_path, args=(robot, pose_array.poses)))
+        
+        # tell all the robots to start moving
+        for thread in threads:
+            thread.start()
+        
+        for thread in threads:
+            thread.join()
+        
+class Robot:
+    def __init__(self, number, start, goal, linear_velocity, angular_velocity):
+        # set up publishers/subscribers/listeners
+        self.listener = tf.TransformListener()
+        self._map_sub = rospy.Subscriber('map', OccupancyGrid, self.map_callback, queue_size=1)
+        self._poses_pub = rospy.Publisher("pose_sequence_" + number, PoseArray, queue_size=1)
+        self._cmd_pub = rospy.Publisher("/robot_" + number + "/cmd_vel", Twist, queue_size=1)
+        
+        # set up parameters
+        self.number = number
+        self.linear_velocity = linear_velocity
+        self.angular_velocity = angular_velocity
+        self.start = start
+        self.goal = goal
+        self.map = None
+    
+    def map_callback(self, msg):
+        self.map = Grid(msg.data, msg.info.width, msg.info.height, msg.info.resolution, msg.info.origin)
+
+    def move(self, linear_vel, angular_vel):
+        """Send a velocity command (linear vel in m/s, angular vel in rad/s)."""
+        # Setting velocities.
+        twist_msg = Twist()
+        twist_msg.linear.x = linear_vel
+        twist_msg.angular.z = angular_vel
+        self._cmd_pub.publish(twist_msg)
+
+    def stop(self):
+        """Stop the robot."""
+        twist_msg = Twist()
+        self._cmd_pub.publish(twist_msg)
+    
+    def rotate(self, angle):
+        """Rotate for desired angle (angle in rad)."""
+        # Setting rate
+        rate = rospy.Rate(FREQUENCY)
+        
+        # rotate for desired duration
+        rot_time = abs(angle / self.angular_velocity)
+        start_time = rospy.get_rostime()
+        while rospy.get_rostime() - start_time < rospy.Duration(rot_time):
+            if angle > 0:
+                self.move(0, self.angular_velocity)
+            else:
+                self.move(0, -self.angular_velocity)
+            rate.sleep()
+        self.stop()
+    
+    def forward(self, distance):
+        """Move for desired distance (distance in m)."""
+        # Setting rate
+        rate = rospy.Rate(FREQUENCY)
+        
+        # move for desired duration
+        move_time = distance / self.linear_velocity
+        start_time = rospy.get_rostime()
+        while rospy.get_rostime() - start_time < rospy.Duration(move_time):
+            self.move(self.linear_velocity, 0)
+            rate.sleep()
+        self.stop()
+    
+    def follow_path(self, path):
         """Moves robot to follow given path (PoseArray)"""
         for i in range(len(path)):            
             # convert pose to be in terms of robot's frame (base_link)
-            if index == 1:
-                (trans, rot) = self.listener.lookupTransform('/robot_0/base_link', '/map', rospy.Time(0))
-            else:
-                (trans, rot) = self.listener.lookupTransform('/robot_1/base_link', '/map', rospy.Time(0))
+            (trans, rot) = self.listener.lookupTransform("/robot_" + self.number + "/base_link", '/map', rospy.Time(0))
+
             t = tf.transformations.translation_matrix(trans)
             R = tf.transformations.quaternion_matrix(rot)
             bl_T_map = t.dot(R)
@@ -227,44 +271,24 @@ class PlanRobot:
 
             # rotate robot to orient towards target
             theta = math.atan2(target_bl[1], target_bl[0])
-            self.rotate(theta, index)
+            self.rotate(theta)
 
             # move robot towards target
             distance = math.sqrt(math.pow(target_bl[0], 2) + math.pow(target_bl[1], 2))
-            self.forward(distance, index)
-    
-    def robot_to_goal(self, goal, index):
-        """Finds path between current pose of robot and goal"""
-        # get current pose of robot and find sequence of poses to get to the goal
-        if index == 1:
-            (trans, rot) = self.listener.lookupTransform('/map', '/robot_0/base_link', rospy.Time(0))
-        else:
-            (trans, rot) = self.listener.lookupTransform('/map', '/robot_1/base_link', rospy.Time(0))
-        
-        pose_array = self.get_pose_array((trans[0], trans[1]), goal)
-
-        # publish a message containing the poses & move the robot 
-        if index == 1:
-            self._poses_pub1.publish(pose_array)
-        else:
-            self._poses_pub2.publish(pose_array)
-
-        # self.follow_path(pose_array.poses, index)
-        
+            self.forward(distance)
 
 if __name__ == "__main__":
     rospy.init_node("planner")
 
-    p = PlanRobot()
+    p = PlanRobots([ROBOT_0, ROBOT_1, ROBOT_2, ROBOT_3, ROBOT_4, ROBOT_5, ROBOT_6])
 
     rospy.sleep(2)
 
     # If interrupted, send a stop command before interrupting.
-    #rospy.on_shutdown(p.stop(1))
+    rospy.on_shutdown(p.stop)
 
     try:
-        p.robot_to_goal(ROBOT_GOAL_1, 1)
-        p.robot_to_goal(ROBOT_GOAL_2, 2)
+        p.path_plan()
         print("finished.")
     except rospy.ROSInterruptException:
         rospy.logerr("ROS node interrupted.")
