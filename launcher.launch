@@ -1,0 +1,19 @@
+<launch>
+<!--
+  <rosparam param="namespaces">
+  ["robot_0", "robot_1", "robot_2", "robot_3", "robot_4",
+  "robot_5", "robot_6", "robot_7", "robot_8", "robot_9"]
+  </rosparam>
+
+  <node name="stage_ros" pkg="stage_ros" type="stageros" args="$(find flocking)/world/empty.world"/>
+-->
+  <group ns = "robot_0">
+    <node name="robot" pkg="" type="multi-robot-planner.py" respawn="false" output="screen" />
+  </group>
+
+<!--
+  <group ns = "robot_1">
+    <node name="flock_node" pkg="flocking" type="FlockNode" respawn="false" output="screen" />
+  </group>
+-->
+</launch>
