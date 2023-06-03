@@ -17,9 +17,6 @@
 <!-- Start all the nodes-->
   <group ns = "robot_0">
     <node pkg="tf" type="static_transform_publisher" name="link0_broadcaster" args="2.0 2.0 0.0 0.0 0.0 0.0 /map /robot_0/odom 100" />
-    <!--
-    <node name="robot_node" pkg="planning_package" type="robot.py" respawn="false" output="screen" />
-    -->
   </group>
 
   <group ns = "robot_1">x
