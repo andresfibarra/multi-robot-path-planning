@@ -5,11 +5,11 @@
   "robot_5", "robot_6", "robot_7"]
   </rosparam>
 
-<!-- Init the stage
+<!-- Init the stage -->
   <node name="map_server" pkg="map_server" type="map_server" args = "$(find planning_package)/world/maze.yml"/>
 
   <node name="stage_ros" pkg="stage_ros" type="stageros" args="$(find planning_package)/world/maze.world"/>
--->
+
 
 <!-- Start the global planner-->
   <node name="global" pkg="planning_package" type="global.py" respawn="false" output="screen" />
