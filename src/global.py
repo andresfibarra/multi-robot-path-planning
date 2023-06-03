@@ -1,12 +1,17 @@
 #!/usr/bin/env python
+
+"""A multi-robot path planning program for the COSC81 final project.
+
+Last Edited: June 3, 2023
+Authors: Andres Ibarra, Jake Olson, Jason Pak
+"""
+
 import math # use of pi.
 import numpy as np
 import tf # library for transformations.
 import rospy
 import threading
 
-# from grid import Grid
-# from nodes.robot import Robot
 from nav_msgs.msg import OccupancyGrid
 from geometry_msgs.msg import Twist, PoseArray, Pose # message type for cmd_vel
 
@@ -282,6 +287,7 @@ class Robot:
 if __name__ == "__main__":
     rospy.init_node("planner")
 
+    # pass in robots here:
     p = PlanRobots([ROBOT_0, ROBOT_1, ROBOT_2, ROBOT_3, ROBOT_4, ROBOT_5, ROBOT_6])
 
     rospy.sleep(2)
